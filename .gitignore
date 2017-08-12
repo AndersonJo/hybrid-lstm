@@ -1,0 +1,9 @@
+# Project
+.idea
+
+# Python
+*.pyc
+
+# Dataset
+dataset
+
