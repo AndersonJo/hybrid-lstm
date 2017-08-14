@@ -1,20 +1,45 @@
 import os
+import queue
 import urllib.request
 import zipfile
+
+import logging
 import pandas as pd
+import numpy as np
 
 from io import BytesIO, StringIO
+
+logger = logging.getLogger('hybrid-lstm.tool')
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s [%(name)s | %(levelname)s] %(message)s')
+
+_cl = logging.StreamHandler()
+_cl.setLevel(logging.DEBUG)
+_cl.setFormatter(formatter)
+logger.addHandler(_cl)
 
 
 def preprocess(data: pd.DataFrame):
     # Lower column names
-    data.columns = map(str.lower, data.columns)
+    COLUMNS = ['date', 'time', 'active_power', 'reactive_power', 'voltage', 'intensity', 'sub1', 'sub2', 'sub3']
+    # data.columns = map(str.lower, data.columns)
+    data.columns = COLUMNS
 
-    # Datetime
+    # Datetime Index
     data['datetime'] = pd.to_datetime(data['date'] + ' ' + data['time'])
     data.set_index('datetime', inplace=True)
     del data['date']
     del data['time']
+
+    # Diff: 그 다음 데이터와 시간적 차이 (초단위)
+    # 예를 들어서 현재 00시 00분 이고, 다음이 00시 5분이라면 5분이라는 차이가 생기고,
+    # 5 * 60 = 300초 시간만큼 00분 row에 넣는다.
+    data['diff_next'] = pd.to_datetime(data.index)
+    data['diff_next'] = data['diff_next'].diff(1).dt.total_seconds().shift(-1)
+
+    # Filter only numeric Data
+    data = data[data.applymap(np.isreal)].dropna()
 
     return data
 
@@ -46,23 +71,44 @@ def load_household_power_consumption(dest='dataset'):
     ##################################
     # Download and Unzip file
     ##################################
+
     if not os.path.exists(CSV_PATH):
+        logger.info('Started downloading dataset. It may take several minutes.')
         with urllib.request.urlopen(URL) as res:
             f = BytesIO(res.read())
             zip_ref = zipfile.ZipFile(f)
             data_txt = zip_ref.read(ZIP_FILE_NAME).decode('utf-8')
             zip_ref.close()
-
+        logger.info('Preprocessing...')
         data = pd.read_csv(StringIO(data_txt), sep=';')
         data = preprocess(data)
+        logger.info(f'Saved the dataset in "{CSV_PATH}"')
         data.to_csv(CSV_PATH)
-        print('save')
     else:
-        print('CSV!')
+        logger.info('Load existing dataset')
         data = pd.read_csv(CSV_PATH, index_col=0)
 
-    print(data.head())
+        data.index = pd.to_datetime(data.index)
+    return data
+
+
+def to_timeseries(data: pd.DataFrame, lag=30):
+    data = data.as_matrix()
+    deque = queue.deque(maxlen=lag)
+
+    timeseries = list()
+    for i in range(len(data)):
+        diff = data[i][-1]
+        if diff >= 120:
+            deque.clear()
+
+        deque.append(data[i])
+        if len(deque) == lag:
+            timeseries.append(deque.copy())
+
+    return np.array(timeseries, dtype=np.float64)
 
 
 if __name__ == '__main__':
-    load_household_power_consumption()
+    data = load_household_power_consumption()
+    print([(c, data[c].dtype) for c in data.columns])
