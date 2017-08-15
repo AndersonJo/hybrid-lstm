@@ -1,5 +1,7 @@
 # Project
 .idea
+.cache
+.ipynb_checkpoints
 
 # Python
 *.pyc

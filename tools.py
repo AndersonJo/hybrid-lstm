@@ -1,13 +1,13 @@
+import logging
 import os
 import queue
 import urllib.request
 import zipfile
-
-import logging
-import pandas as pd
-import numpy as np
-
 from io import BytesIO, StringIO
+from typing import Union
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger('hybrid-lstm.tool')
 logger.setLevel(logging.DEBUG)
@@ -89,24 +89,39 @@ def load_household_power_consumption(dest='dataset'):
         data = pd.read_csv(CSV_PATH, index_col=0)
 
         data.index = pd.to_datetime(data.index)
-    return data
+
+    matrix: np.array = data.as_matrix()
+    y = matrix[:, 0].reshape(-1, 1)
+    x = matrix[:, 1:]
+    return data, x, y
 
 
-def to_timeseries(data: pd.DataFrame, lag=30):
-    data = data.as_matrix()
-    deque = queue.deque(maxlen=lag)
+def to_timeseries(data: Union[pd.DataFrame, np.array], t=30):
+    if isinstance(data, pd.DataFrame):
+        data = data.as_matrix()
+
+    deque = queue.deque(maxlen=t)
 
     timeseries = list()
-    for i in range(len(data)):
+    for i in range(len(data) - t):
         diff = data[i][-1]
         if diff >= 120:
             deque.clear()
 
         deque.append(data[i])
-        if len(deque) == lag:
+        if len(deque) == t:
             timeseries.append(deque.copy())
 
     return np.array(timeseries, dtype=np.float64)
+
+
+def split_train_test(data_x, data_y, train_ratio=0.8):
+    n = len(data_x)
+    train_n = int(n * train_ratio)
+
+    train_x, test_x = data_x[:train_n], data_x[train_n:]
+    train_y, test_y = data_y[:train_n], data_y[train_n:]
+    return train_x, train_y, test_x, test_y
 
 
 if __name__ == '__main__':
