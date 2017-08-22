@@ -8,6 +8,8 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
+import pylab
+from sklearn.metrics import r2_score
 
 logger = logging.getLogger('hybrid-lstm.tool')
 logger.setLevel(logging.DEBUG)
@@ -42,6 +44,23 @@ def preprocess(data: pd.DataFrame):
     data = data[data.applymap(np.isreal)].dropna()
 
     return data
+
+
+def augment(data):
+    n = len(data)
+    shape = data.shape[1:]
+
+    # Create Augmented Dataset
+    aug = np.zeros((n * 3, *shape), dtype='float32')
+    aug[:n] = data
+
+    # Plus
+    aug[n:n * 2] += 3  # np.std(data, axis=0)
+
+    # Minus
+    aug[n * 2:n * 3] -= 2  # np.std(data, axis=0)
+
+    return aug
 
 
 def load_household_power_consumption(dest='dataset'):
@@ -122,6 +141,26 @@ def split_train_test(data_x, data_y, train_ratio=0.8):
     train_x, test_x = data_x[:train_n], data_x[train_n:]
     train_y, test_y = data_y[:train_n], data_y[train_n:]
     return train_x, train_y, test_x, test_y
+
+
+def vis_evaluate(model, test_x, test_y):
+    n = len(test_x)
+
+    fig, plots = pylab.subplots(4, 4)
+    plots = plots.reshape(-1)
+
+    fig.set_figwidth(12)
+    fig.set_figheight(7)
+
+    for p in plots:
+        idx = np.random.randint(0, n)
+        true_y = test_y[idx]
+        pred_y = model.predict(test_x[idx:idx + 1])
+
+        score = r2_score(true_y.reshape(-1), pred_y.reshape(-1))
+        print(f'[{idx:<4}] r^2: {score:<12.4}')
+        p.plot(pred_y[0], color='red')
+        p.plot(true_y)
 
 
 if __name__ == '__main__':
