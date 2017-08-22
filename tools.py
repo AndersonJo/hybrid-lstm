@@ -122,7 +122,7 @@ def to_timeseries(data: Union[pd.DataFrame, np.array], t=30):
     deque = queue.deque(maxlen=t)
 
     timeseries = list()
-    for i in range(len(data) - t):
+    for i in range(len(data)):
         diff = data[i][-1]
         if diff >= 120:
             deque.clear()
