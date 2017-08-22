@@ -109,10 +109,7 @@ def load_household_power_consumption(dest='dataset'):
 
         data.index = pd.to_datetime(data.index)
 
-    matrix: np.array = data.as_matrix()
-    y = matrix[:, 0].reshape(-1, 1)
-    x = matrix[:, 1:]
-    return data, x, y
+    return data
 
 
 def to_timeseries(data: Union[pd.DataFrame, np.array], t=30):
@@ -132,6 +129,13 @@ def to_timeseries(data: Union[pd.DataFrame, np.array], t=30):
             timeseries.append(deque.copy())
 
     return np.array(timeseries, dtype=np.float64)
+
+
+def split_x_y(dataset):
+    matrix: np.array = dataset.as_matrix()
+    y = matrix[:, 0].reshape(-1, 1)
+    x = matrix[:, 1:]
+    return x, y
 
 
 def split_train_test(data_x, data_y, train_ratio=0.8):
