@@ -63,7 +63,7 @@ def augment(data):
     return aug
 
 
-def load_household_power_consumption(dest='dataset'):
+def load_household_power_consumption(dest='dataset', hour_one_hot=True):
     """
     https://archive.ics.uci.edu/ml/datasets/Individual+household+electric+power+consumption
 
@@ -109,10 +109,15 @@ def load_household_power_consumption(dest='dataset'):
 
         data.index = pd.to_datetime(data.index)
 
+    if hour_one_hot:
+        # Add Hour one-hot vector
+        data['hour'] = data.index.hour
+        data = pd.get_dummies(data, columns=['hour'], prefix='h')
+
     return data
 
 
-def to_timeseries(data: Union[pd.DataFrame, np.array], t=30):
+def to_timeseries(data: Union[pd.DataFrame, np.array], train=False, t=30):
     if isinstance(data, pd.DataFrame):
         data = data.as_matrix()
 
@@ -124,7 +129,10 @@ def to_timeseries(data: Union[pd.DataFrame, np.array], t=30):
         if diff >= 120:
             deque.clear()
 
-        deque.append(data[i])
+        if train:
+            deque.append(data[i, :-1])
+        else:
+            deque.append(data[i])
         if len(deque) == t:
             timeseries.append(deque.copy())
 
@@ -147,7 +155,7 @@ def split_train_test(data_x, data_y, train_ratio=0.8):
     return train_x, train_y, test_x, test_y
 
 
-def vis_evaluate(model, test_x, test_y):
+def vis_evaluate(model, test_x, test_y, batch=32):
     n = len(test_x)
 
     fig, plots = pylab.subplots(4, 4)
@@ -159,7 +167,7 @@ def vis_evaluate(model, test_x, test_y):
     for p in plots:
         idx = np.random.randint(0, n)
         true_y = test_y[idx]
-        pred_y = model.predict(test_x[idx:idx + 1])
+        pred_y = model.predict(test_x[idx:idx + 1], batch_size=batch)
 
         score = r2_score(true_y.reshape(-1), pred_y.reshape(-1))
         print(f'[{idx:<4}] r^2: {score:<12.4}')
