@@ -124,7 +124,7 @@ def load_household_power_consumption(dest='dataset', hour_one_hot=True):
     return dataset  # , data[['diff_next']].as_matrix()
 
 
-def calculate_diffs(dataset):
+def calculate_datetime_diffs(dataset):
     times = pd.Series(pd.to_datetime(dataset.index))
     diffs = times.diff(1).dt.total_seconds().shift(-1)
     return diffs.as_matrix().reshape(-1, 1)
