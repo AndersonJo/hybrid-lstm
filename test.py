@@ -1,4 +1,4 @@
-from dataset import load_wiki_traffic_dataset
+from dataset2 import load_wiki_traffic_dataset
 
 
 def test_load_dataset():
