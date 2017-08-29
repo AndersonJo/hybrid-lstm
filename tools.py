@@ -165,6 +165,15 @@ def split_train_test(data_x, data_y, train_ratio=0.8):
     train_y, test_y = data_y[:train_n], data_y[train_n:]
     return train_x, train_y, test_x, test_y
 
+def get_task2(y):
+    n = y.shape[0]
+    data = np.zeros((n, 2))
+
+    for i in range(n):
+        data[i] = (y[i].min(), y[i].max())
+
+    return data
+
 
 def vis_evaluate(model, test_x, test_y, batch=32):
     n = len(test_x)
